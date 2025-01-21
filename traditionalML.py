@@ -3,9 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.svm import SVR
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import KFold, cross_val_score, GridSearchCV
@@ -25,9 +26,9 @@ df = pd.read_csv("appliances+energy+prediction/energydata_complete.csv")
 df["date"] = pd.to_datetime(df["date"])
 
 # Extract time-based features 
-df["hour"] = df["date"].dt.hour
-df["day_of_week"] = df["date"].dt.dayofweek
-df["month"] = df["date"].dt.month
+#df["hour"] = df["date"].dt.hour
+#df["day_of_week"] = df["date"].dt.dayofweek
+#df["month"] = df["date"].dt.month
 
 # Get specific time of the day
 def time_of_day(hour):
@@ -40,12 +41,12 @@ def time_of_day(hour):
     else:
         return "night"
 
-df["time_of_day"] = df["hour"].apply(time_of_day)
-df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
+#df["time_of_day"] = df["hour"].apply(time_of_day)
+#df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
 
 # Create features to account for the sequentiality of the data (avoid time-series)
-df["Appliances_lag1"] = df["Appliances"].shift(1)
-df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
+#df["Appliances_lag1"] = df["Appliances"].shift(1)
+#df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 
 # Since Appliencies is highly skewed, apply log trasformation
 #df["Appliances_log"] = np.log1p(df["Appliances"])
@@ -54,11 +55,14 @@ df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 df.dropna(inplace=True)
 
 # Split the data
-X = df.drop(["Appliances", "date"], axis=1)
+X = df.drop(["Appliances", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=1)
 y = df["Appliances"]
 
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
 # Pipelines
-pipelines = {
+"""pipelines = {
     "Random Forest": Pipeline([
         ('scaler', StandardScaler()),
         ('pca', PCA(n_components=0.95)),  # Retain 95% variance
@@ -83,8 +87,8 @@ pipelines = {
 # Define parameter grids
 param_grids = {
     "Random Forest": {
-        'model__n_estimators': [50, 100, 200],
-        'model__max_depth': [5, 10, None]
+        'n_estimators': [50, 100, 200],
+        'max_depth': [5, 10, None]
     },
     "SVM": {
         'C': [0.1, 1, 10],
@@ -96,7 +100,7 @@ param_grids = {
         'learning_rate': [0.01, 0.1, 0.2],
         'max_depth': [3, 5, 7]
     }
-}
+}"""
 
 """correlation_matrix = df.corr()
 sns.heatmap(correlation_matrix, annot=True, fmt=".2f")
@@ -109,7 +113,7 @@ plt.show()"""
 
 # Perform Nested cross-validation
 # Outer loop for testing different models
-outer_cv = KFold(n_splits=5, shuffle=True, random_state=1618)
+"""outer_cv = KFold(n_splits=5, shuffle=True, random_state=1618)
 cv_results = {}
 
 for model_name, pipeline in pipelines.items():
@@ -128,19 +132,47 @@ for model_name, pipeline in pipelines.items():
 # Results
 print("Nested CV Results:")
 for model_name, results in cv_results.items():
-    print(f"{model_name}: MAE = {results['MAE']:.2f} ± {results['STD']:.4f}")
-    
-"""X_train, X_test, y_train, y_test = train_test_split(X_tr, y, test_size=0.2, random_state=1618)
+    print(f"{model_name}: MAE = {results['MAE']:.2f} ± {results['STD']:.4f}")"""
 
-model = XGBRegressor(n_estimators=200, learning_rate=0.1)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=1618)
+
+"""param_grid = {
+    "n_estimators": [50, 100, 200],
+    "learning_rate": [0.01, 0.1, 0.2],
+    "max_depth": [3, 5, 7],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0]
+}
+
+grid_search = GridSearchCV(
+    estimator=XGBRegressor(random_state=1618),
+    param_grid=param_grid,
+    scoring="neg_mean_absolute_error",  # Use MAE as the scoring metric
+    cv=5,  # 5-fold cross-validation
+    verbose=1,  # To show progress
+    n_jobs=-1  # Use all available cores
+)
+
+grid_search.fit(X_train, y_train)
+print("Best Parameters:", grid_search.best_params_)"""
+
+# Parameters taken from the paper
+model = XGBRegressor(colsample_bytree=1.0, learning_rate=0.2, max_depth=7, n_estimators=200, subsample=1.0)
 model.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
+y_pred_train = model.predict(X_train)
+y_pred_test = model.predict(X_test)
 
-mae = mean_absolute_error(y_test, y_pred)
-mse = mean_squared_error(y_test, y_pred)
-print(f"Mean Absolute Error (MAE): {mae}")
-print(f"Mean Squared Error (MSE): {mse}")"""
+mae_train = mean_absolute_error(y_train, y_pred_train)
+mse_train = mean_squared_error(y_train, y_pred_train)
+r2_train = r2_score(y_train, y_pred_train)
+
+mae_test = mean_absolute_error(y_test, y_pred_test)
+mse_test = mean_squared_error(y_test, y_pred_test)
+r2_test = r2_score(y_test, y_pred_test)
+
+print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}")
+print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}")
 
 """fig, ax = plt.subplots(1, 2, figsize=(10,8))
 # Transformed scale
