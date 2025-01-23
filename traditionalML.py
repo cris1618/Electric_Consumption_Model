@@ -18,6 +18,7 @@ from torch.optim.lr_scheduler import StepLR
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import Pipeline
+from functions import calculate_accuracy, calculate_nrmse
 
 # Import the dataframe
 df = pd.read_csv("appliances+energy+prediction/energydata_complete.csv")
@@ -26,9 +27,9 @@ df = pd.read_csv("appliances+energy+prediction/energydata_complete.csv")
 df["date"] = pd.to_datetime(df["date"])
 
 # Extract time-based features 
-#df["hour"] = df["date"].dt.hour
-#df["day_of_week"] = df["date"].dt.dayofweek
-#df["month"] = df["date"].dt.month
+df["hour"] = df["date"].dt.hour
+df["day_of_week"] = df["date"].dt.dayofweek
+df["month"] = df["date"].dt.month
 
 # Get specific time of the day
 def time_of_day(hour):
@@ -41,22 +42,22 @@ def time_of_day(hour):
     else:
         return "night"
 
-#df["time_of_day"] = df["hour"].apply(time_of_day)
-#df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
+df["time_of_day"] = df["hour"].apply(time_of_day)
+df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
 
 # Create features to account for the sequentiality of the data (avoid time-series)
-#df["Appliances_lag1"] = df["Appliances"].shift(1)
-#df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
+df["Appliances_lag1"] = df["Appliances"].shift(1)
+df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 
 # Since Appliencies is highly skewed, apply log trasformation
-#df["Appliances_log"] = np.log1p(df["Appliances"])
+df["Appliances_log"] = np.log1p(df["Appliances"])
 
 # Drop missing values introduced by lag/rolling features
 df.dropna(inplace=True)
 
 # Split the data
-X = df.drop(["Appliances", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=1)
-y = df["Appliances"]
+X = df.drop(["Appliances", "Appliances_log", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=1)
+y = df["Appliances"] 
 
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X)
@@ -157,7 +158,7 @@ grid_search.fit(X_train, y_train)
 print("Best Parameters:", grid_search.best_params_)"""
 
 # Parameters taken from the paper
-model = XGBRegressor(colsample_bytree=1.0, learning_rate=0.2, max_depth=7, n_estimators=200, subsample=1.0)
+model = ExtraTreesRegressor(max_depth=80, max_features="sqrt", n_estimators=250)
 model.fit(X_train, y_train)
 
 y_pred_train = model.predict(X_train)
@@ -166,13 +167,17 @@ y_pred_test = model.predict(X_test)
 mae_train = mean_absolute_error(y_train, y_pred_train)
 mse_train = mean_squared_error(y_train, y_pred_train)
 r2_train = r2_score(y_train, y_pred_train)
+nrmse_train = calculate_nrmse(y_train, y_pred_train)
+accuracy_train = calculate_accuracy(nrmse_train)
 
 mae_test = mean_absolute_error(y_test, y_pred_test)
 mse_test = mean_squared_error(y_test, y_pred_test)
 r2_test = r2_score(y_test, y_pred_test)
+nrmse_test = calculate_nrmse(y_test, y_pred_test)
+accuracy_test = calculate_accuracy(nrmse_test)
 
-print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}")
-print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}")
+print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}, Accuracy: {accuracy_train:.2f}%")
+print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}, Accuracy: {accuracy_test:.2f}%")
 
 """fig, ax = plt.subplots(1, 2, figsize=(10,8))
 # Transformed scale
