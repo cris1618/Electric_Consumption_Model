@@ -17,6 +17,7 @@ from torch.optim.lr_scheduler import StepLR
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 import torch.optim as optim
+from functions import calculate_accuracy, calculate_nrmse
 
 # Import the dataframe
 df = pd.read_csv("appliances+energy+prediction/energydata_complete.csv")
@@ -54,11 +55,11 @@ df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 df.dropna(inplace=True)
 
 # Split the data
-X = df.drop(["Appliances", "date"], axis=1) # drop "date" or not
+X = df.drop(["Appliances", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=1) # drop "date" or not
 y = df["Appliances"]
 
 # Apply log transformation to target
-y_log = np.log1p(y)  # Stabilizes variance
+#y_log = np.log1p(y)  # Stabilizes variance
 
 # Normalize features for the LSTM
 scaler = MinMaxScaler()
@@ -66,7 +67,7 @@ X_scaled = scaler.fit_transform(X)
 
 # Normalize targets
 target_scaler = MinMaxScaler()
-y_scaled = target_scaler.fit_transform(y_log.values.reshape(-1, 1)).flatten()
+#y_scaled = target_scaler.fit_transform(y.values.reshape(-1, 1)).flatten()
 
 # Reeshape data for LSTM
 def create_sequences(data, target, sequence_length):
@@ -76,8 +77,8 @@ def create_sequences(data, target, sequence_length):
         y.append(target[i+sequence_length])
     return np.array(X), np.array(y)
 
-sequence_length = 20
-X_seq, y_seq = create_sequences(X_scaled, y_scaled, sequence_length)
+sequence_length = 10
+X_seq, y_seq = create_sequences(X_scaled, y, sequence_length)
 
 # Create the model
 class LSTMModel(nn.Module):
@@ -113,8 +114,8 @@ X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_siz
 train_dataset = TensorDataset(X_train, y_train)
 test_dataset = TensorDataset(X_test, y_test)
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training Loop
 epochs = 500
@@ -136,27 +137,47 @@ for epoch in range(epochs):
 # Evaluate the model
 model.eval()
 with torch.no_grad():
-    y_test_pred = model(X_test).numpy()
+    y_pred_test = model(X_test).numpy()
+    y_pred_train = model(X_train).numpy()
 
 # Reverse normalization
-y_test_pred_normalized = target_scaler.inverse_transform(y_test_pred.reshape(-1, 1)).flatten()
-y_test_original_normalized = target_scaler.inverse_transform(y_test.numpy().reshape(-1, 1)).flatten()
+#y_test_pred_normalized = target_scaler.inverse_transform(y_test_pred.reshape(-1, 1)).flatten()
+#y_test_original_normalized = target_scaler.inverse_transform(y_test.numpy().reshape(-1, 1)).flatten()
 
 # Reverse log transformation
-y_test_pred_original = np.expm1(y_test_pred_normalized)
-y_test_original = np.expm1(y_test_original_normalized)
+#y_test_pred_original = np.expm1(y_test_pred_normalized)
+#y_test_original = np.expm1(y_test_original_normalized)
 
-rmse = np.sqrt(mean_squared_error(y_test_original, y_test_pred_original))
-mae = mean_absolute_error(y_test_original, y_test_pred_original)
-r2 = r2_score(y_test_original, y_test_pred_original)
 
-print(f"RMSE: {rmse:.2f}, MAE: {mae:.2f}, R^2: {r2:.2f}")
+mae_train = mean_absolute_error(y_train, y_pred_train)
+mse_train = mean_squared_error(y_train, y_pred_train)
+r2_train = r2_score(y_train, y_pred_train)
+nrmse_train = calculate_nrmse(y_train, y_pred_train)
+accuracy_train = calculate_accuracy(nrmse_train)
 
-residuals = y_test_original - y_test_pred_original
-plt.scatter(y_test_original, residuals, alpha=0.5)
-plt.axhline(0, color='red', linestyle='--')
-plt.xlabel("Actual Values")
-plt.ylabel("Residuals")
-plt.title("Residual Plot")
+mae_test = mean_absolute_error(y_test, y_pred_test)
+mse_test = mean_squared_error(y_test, y_pred_test)
+r2_test = r2_score(y_test, y_pred_test)
+nrmse_test = calculate_nrmse(y_test, y_pred_test)
+accuracy_test = calculate_accuracy(nrmse_test)
+
+print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}, Accuracy: {accuracy_train:.2f}%")
+print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}, Accuracy: {accuracy_test:.2f}%")
+
+fig, ax = plt.subplots(1, 2, figsize=(10, 6))
+residuals = y_test - y_pred_test
+ax[0].scatter(y_test, residuals, alpha=0.5)
+ax[0].axhline(0, color='red', linestyle='--')
+ax[0].set_xlabel("Actual Values")
+ax[0].set_ylabel("Residuals")
+ax[0].set_title("Residual Plot")
+
+time_index = range(len(y_test[:50]))
+ax[1].plot(time_index, y_test[:50], label="Actual Value", color="red", linestyle="-", marker="o")
+ax[1].plot(time_index, y_pred_test[:50], label="Predicted Value", color="blue", linestyle="--", marker="x")
+ax[1].set_xlabel("Time (h)")
+ax[1].set_ylabel("Appliances Energy Consumption (Wh)")
+ax[1].set_title("Prediction Results of Household Appliance Energy Consumption")
+plt.legend()
+plt.grid(0.5)
 plt.show()
-
