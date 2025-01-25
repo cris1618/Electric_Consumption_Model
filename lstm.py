@@ -45,8 +45,8 @@ df["time_of_day"] = df["hour"].apply(time_of_day)
 df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
 
 # Create features to account for the sequentiality of the data (avoid time-series)
-df["Appliances_lag1"] = df["Appliances"].shift(1)
-df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
+#df["Appliances_lag1"] = df["Appliances"].shift(1)
+#df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 
 # Since Appliencies is highly skewed, apply log trasformation
 #df["Appliances_log"] = np.log1p(df["Appliances"])
@@ -59,7 +59,7 @@ X = df.drop(["Appliances", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=
 y = df["Appliances"]
 
 # Apply log transformation to target
-#y_log = np.log1p(y)  # Stabilizes variance
+y_log = np.log1p(y)  # Stabilizes variance
 
 # Reeshape data for LSTM
 def create_sequences(data, target, sequence_length):
@@ -70,7 +70,7 @@ def create_sequences(data, target, sequence_length):
     return np.array(X), np.array(y)
 
 sequence_length = 10
-X_train_raw, X_test_raw, y_train_raw, y_test_raw = train_test_split(X, y, test_size=0.2, random_state=1618)
+X_train_raw, X_test_raw, y_train_raw, y_test_raw = train_test_split(X, y_log, test_size=0.2, random_state=1618)
 
 # Avoid misalignment
 y_train_raw = y_train_raw.reset_index(drop=True)
@@ -84,15 +84,12 @@ X_test_scaled = scaler.transform(X_test_raw)
 X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train_raw.values, sequence_length)
 X_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test_raw.values, sequence_length)
 
-print(f"X_train_seq shape: {X_train_seq.shape}, y_train_seq shape: {y_train_seq.shape}")
-print(f"X_test_seq shape: {X_test_seq.shape}, y_test_seq shape: {y_test_seq.shape}")
-
 # Create the model
 class LSTMModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(LSTMModel, self).__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.5)
         self.fc = nn.Sequential(
             nn.Linear(hidden_dim, output_dim),
             nn.ReLU()
@@ -111,7 +108,7 @@ output_dim = 1
 
 model = LSTMModel(input_dim, hidden_dim, output_dim)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 
 X_tensor_train = torch.tensor(X_train_seq, dtype=torch.float32)
 y_tensor_train = torch.tensor(y_train_seq, dtype=torch.float32).view(-1,1)
@@ -126,7 +123,7 @@ train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training Loop
-epochs = 1
+epochs = 100
 scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
 for epoch in range(epochs):
     model.train()
