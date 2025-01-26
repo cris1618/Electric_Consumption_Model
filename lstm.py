@@ -130,7 +130,7 @@ train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training Loop
-epochs = 500
+epochs = 100
 scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
 for epoch in range(epochs):
     model.train()
