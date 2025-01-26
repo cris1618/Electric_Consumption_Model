@@ -45,8 +45,8 @@ df["time_of_day"] = df["hour"].apply(time_of_day)
 df = pd.get_dummies(df, columns=["time_of_day"], drop_first=True)
 
 # Create features to account for the sequentiality of the data (avoid time-series)
-#df["Appliances_lag1"] = df["Appliances"].shift(1)
-#df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
+df["Appliances_lag1"] = df["Appliances"].shift(1)
+df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 
 # Since Appliencies is highly skewed, apply log trasformation
 #df["Appliances_log"] = np.log1p(df["Appliances"])
@@ -59,7 +59,15 @@ X = df.drop(["Appliances", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=
 y = df["Appliances"]
 
 # Apply log transformation to target
-y_log = np.log1p(y)  # Stabilizes variance
+#y_log = np.log1p(y)  # Stabilizes variance
+
+# Normalize features for the LSTM
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Normalize targets
+target_scaler = MinMaxScaler()
+#y_scaled = target_scaler.fit_transform(y.values.reshape(-1, 1)).flatten()
 
 # Reeshape data for LSTM
 def create_sequences(data, target, sequence_length):
@@ -70,26 +78,18 @@ def create_sequences(data, target, sequence_length):
     return np.array(X), np.array(y)
 
 sequence_length = 10
-X_train_raw, X_test_raw, y_train_raw, y_test_raw = train_test_split(X, y_log, test_size=0.2, random_state=1618)
+X_seq, y_seq = create_sequences(X_scaled, y, sequence_length)
 
-# Avoid misalignment
-y_train_raw = y_train_raw.reset_index(drop=True)
-y_test_raw = y_test_raw.reset_index(drop=True)
-
-# Normalizing features for LSTM
-scaler = MinMaxScaler()
-X_train_scaled = scaler.fit_transform(X_train_raw)
-X_test_scaled = scaler.transform(X_test_raw)
-
-X_train_seq, y_train_seq = create_sequences(X_train_scaled, y_train_raw.values, sequence_length)
-X_test_seq, y_test_seq = create_sequences(X_test_scaled, y_test_raw.values, sequence_length)
+for i in range(len(X_seq)):
+    assert len(X_seq[i]) == sequence_length, f"Sequence {i} does not have the correct length!"
+assert len(X_seq) == len(y_seq)
 
 # Create the model
 class LSTMModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(LSTMModel, self).__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.2)
         self.fc = nn.Sequential(
             nn.Linear(hidden_dim, output_dim),
             nn.ReLU()
@@ -102,28 +102,35 @@ class LSTMModel(nn.Module):
         return predictions
     
 # Parameters
-input_dim = X_train_seq.shape[2]
+input_dim = X_seq.shape[2]
 hidden_dim = 50
 output_dim = 1
 
 model = LSTMModel(input_dim, hidden_dim, output_dim)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-X_tensor_train = torch.tensor(X_train_seq, dtype=torch.float32)
-y_tensor_train = torch.tensor(y_train_seq, dtype=torch.float32).view(-1,1)
+X_tensor = torch.tensor(X_seq, dtype=torch.float32)
+y_tensor = torch.tensor(y_seq, dtype=torch.float32).view(-1,1)
 
-X_tensor_test = torch.tensor(X_test_seq, dtype=torch.float32)
-y_tensor_test = torch.tensor(y_test_seq, dtype=torch.float32).view(-1,1)
+assert X_tensor.min() >= 0 and X_tensor.max() <= 1, "Features are not normalized between 0 and 1!"
+#assert y_tensor.min() >= 0 and y_tensor.max() <= 1, "Targets are not normalized between 0 and 1!"
 
-train_dataset = TensorDataset(X_tensor_train, y_tensor_train)
-test_dataset = TensorDataset(X_tensor_test, y_tensor_test)
+X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=1618)
+assert not set(X_train.flatten()).intersection(set(X_test.flatten()))
+assert not set(y_train.flatten()).intersection(set(y_test.flatten()))
+
+assert len(X_train) + len(X_test) == len(X_tensor), "Train-test split is inconsistent with the original data!"
+assert len(y_train) + len(y_test) == len(y_tensor)
+
+train_dataset = TensorDataset(X_train, y_train)
+test_dataset = TensorDataset(X_test, y_test)
 
 train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training Loop
-epochs = 100
+epochs = 500
 scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
 for epoch in range(epochs):
     model.train()
@@ -142,8 +149,8 @@ for epoch in range(epochs):
 # Evaluate the model
 model.eval()
 with torch.no_grad():
-    y_pred_test = model(X_tensor_test).numpy()
-    y_pred_train = model(X_tensor_train).numpy()
+    y_pred_test = model(X_test).numpy()
+    y_pred_train = model(X_train).numpy()
 
 # Reverse normalization
 #y_test_pred_normalized = target_scaler.inverse_transform(y_test_pred.reshape(-1, 1)).flatten()
@@ -154,31 +161,31 @@ with torch.no_grad():
 #y_test_original = np.expm1(y_test_original_normalized)
 
 
-mae_train = mean_absolute_error(y_tensor_train.numpy(), y_pred_train)
-mse_train = mean_squared_error(y_tensor_train.numpy(), y_pred_train)
-r2_train = r2_score(y_tensor_train.numpy(), y_pred_train)
-nrmse_train = calculate_nrmse(y_tensor_train.numpy(), y_pred_train)
+mae_train = mean_absolute_error(y_train, y_pred_train)
+mse_train = mean_squared_error(y_train, y_pred_train)
+r2_train = r2_score(y_train, y_pred_train)
+nrmse_train = calculate_nrmse(y_train, y_pred_train)
 accuracy_train = calculate_accuracy(nrmse_train)
 
-mae_test = mean_absolute_error(y_tensor_test.numpy(), y_pred_test)
-mse_test = mean_squared_error(y_tensor_test.numpy(), y_pred_test)
-r2_test = r2_score(y_tensor_test.numpy(), y_pred_test)
-nrmse_test = calculate_nrmse(y_tensor_test.numpy(), y_pred_test)
+mae_test = mean_absolute_error(y_test, y_pred_test)
+mse_test = mean_squared_error(y_test, y_pred_test)
+r2_test = r2_score(y_test, y_pred_test)
+nrmse_test = calculate_nrmse(y_test, y_pred_test)
 accuracy_test = calculate_accuracy(nrmse_test)
 
 print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}, Accuracy: {accuracy_train:.2f}%")
 print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}, Accuracy: {accuracy_test:.2f}%")
 
 fig, ax = plt.subplots(1, 2, figsize=(10, 6))
-residuals = y_tensor_test.numpy() - y_pred_test
-ax[0].scatter(y_tensor_test.numpy(), residuals, alpha=0.5)
+residuals = y_test - y_pred_test
+ax[0].scatter(y_test, residuals, alpha=0.5)
 ax[0].axhline(0, color='red', linestyle='--')
 ax[0].set_xlabel("Actual Values")
 ax[0].set_ylabel("Residuals")
 ax[0].set_title("Residual Plot")
 
-time_index = range(len(y_tensor_test.numpy()[:50]))
-ax[1].plot(time_index, y_tensor_test.numpy()[:50], label="Actual Value", color="red", linestyle="-", marker="o")
+time_index = range(len(y_test[:50]))
+ax[1].plot(time_index, y_test[:50], label="Actual Value", color="red", linestyle="-", marker="o")
 ax[1].plot(time_index, y_pred_test[:50], label="Predicted Value", color="blue", linestyle="--", marker="x")
 ax[1].set_xlabel("Time (h)")
 ax[1].set_ylabel("Appliances Energy Consumption (Wh)")
