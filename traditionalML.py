@@ -50,17 +50,21 @@ df["Appliances_lag1"] = df["Appliances"].shift(1)
 df["Appliances_rolling_mean"] = df["Appliances"].rolling(window=3).mean()
 
 # Since Appliencies is highly skewed, apply log trasformation
-df["Appliances_log"] = np.log1p(df["Appliances"])
+#df["Appliances_log"] = np.log1p(df["Appliances"])
 
 # Drop missing values introduced by lag/rolling features
 df.dropna(inplace=True)
 
 # Split the data
-X = df.drop(["Appliances", "Appliances_log", "date", "T9", "T6", "rv1", "rv2", "Windspeed"], axis=1)
+X = df.drop(["Appliances", "date"], axis=1)
 y = df["Appliances"] 
 
+pca = PCA(n_components=0.95)
+X_pca = pca.fit_transform(X)
+
 scaler = MinMaxScaler()
-X_scaled = scaler.fit_transform(X)
+X_scaled = scaler.fit_transform(X_pca)
+#y_scaled = scaler.fit_transform(y.values.reshape(-1, 1))
 
 # Pipelines
 """pipelines = {
@@ -158,7 +162,7 @@ grid_search.fit(X_train, y_train)
 print("Best Parameters:", grid_search.best_params_)"""
 
 # Parameters taken from the paper
-model = ExtraTreesRegressor(max_depth=80, max_features="sqrt", n_estimators=250)
+model = XGBRegressor(colsample_bytree=1.0, learning_rate=0.2, max_depth=7, n_estimators=200, subsample=1.0)
 model.fit(X_train, y_train)
 
 y_pred_train = model.predict(X_train)
@@ -179,21 +183,23 @@ accuracy_test = calculate_accuracy(nrmse_test)
 print(f"Training Set - MAE: {mae_train:.2f}, MSE: {mse_train:.2f}, R^2: {r2_train:.2f}, Accuracy: {accuracy_train:.2f}%")
 print(f"Testing Set - MAE: {mae_test:.2f}, MSE: {mse_test:.2f}, R^2: {r2_test:.2f}, Accuracy: {accuracy_test:.2f}%")
 
-"""fig, ax = plt.subplots(1, 2, figsize=(10,8))
-# Transformed scale
-ax[0].scatter(y_test, y_pred, alpha=0.5)
-ax[0].plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
-ax[0].set_xlabel("Actual (Log Scale)")
-ax[0].set_ylabel("Predicted (Log Scale)")
-ax[0].set_title("Predicted vs Actual (Log Scale)")
+fig, ax = plt.subplots(1, 2, figsize=(10, 6))
+residuals = y_test - y_pred_test
+ax[0].scatter(y_test, residuals, alpha=0.5)
+ax[0].axhline(0, color='red', linestyle='--')
+ax[0].set_xlabel("Actual Values")
+ax[0].set_ylabel("Residuals")
+ax[0].set_title("Residual Plot")
 
-# Original scale
-ax[1].scatter(y_test_original, y_pred_original, alpha=0.5)
-ax[1].plot([y_test_original.min(), y_test_original.max()], [y_test_original.min(), y_test_original.max()], 'r--')
-ax[1].set_xlabel("Actual (Original Scale)")
-ax[1].set_ylabel("Predicted (Original Scale)")
-ax[1].set_title("Predicted vs Actual (Original Scale)")
-plt.show()"""
+time_index = range(len(y_test[2000:2050]))
+ax[1].plot(time_index, y_test[2000:2050], label="Actual Value", color="red", linestyle="-", marker="o")
+ax[1].plot(time_index, y_pred_test[2000:2050], label="Predicted Value", color="blue", linestyle="--", marker="x")
+ax[1].set_xlabel("Time (h)")
+ax[1].set_ylabel("Appliances Energy Consumption (Wh)")
+ax[1].set_title("Prediction Results of Household Appliance Energy Consumption")
+plt.legend()
+plt.grid(0.5)
+plt.show()
 
 
 """Nested CV Results:
