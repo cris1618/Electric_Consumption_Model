@@ -108,7 +108,7 @@ output_dim = 1
 
 model = LSTMModel(input_dim, hidden_dim, output_dim)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.01)
 
 X_tensor = torch.tensor(X_seq, dtype=torch.float32)
 y_tensor = torch.tensor(y_seq, dtype=torch.float32).view(-1,1)
@@ -117,7 +117,7 @@ assert X_tensor.min() >= 0 and X_tensor.max() <= 1, "Features are not normalized
 #assert y_tensor.min() >= 0 and y_tensor.max() <= 1, "Targets are not normalized between 0 and 1!"
 
 X_train, X_test, y_train, y_test = train_test_split(X_tensor, y_tensor, test_size=0.2, random_state=1618)
-assert not set(X_train.flatten()).intersection(set(X_test.flatten()))
+assert not set(X_train.flatten()).intersection(set(X_test.flatten())), "Error, X_train and X_test Intersect"
 assert not set(y_train.flatten()).intersection(set(y_test.flatten()))
 
 assert len(X_train) + len(X_test) == len(X_tensor), "Train-test split is inconsistent with the original data!"
@@ -130,7 +130,7 @@ train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training Loop
-epochs = 100
+epochs = 500
 scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
 for epoch in range(epochs):
     model.train()
