@@ -18,6 +18,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 import torch.optim as optim
 from functions import calculate_accuracy, calculate_nrmse, create_sequences
+import pickle
 
 # Import the synthetic data
 df = pd.read_csv("SyntethicData/synthetic_energy_data.csv")
@@ -32,6 +33,12 @@ df.dropna(inplace=True)
 
 # Split features and targets
 X = df.drop("KWh Consumption", axis=1)
+feature_cols = X.columns.tolist()
+
+# Save to use them in the API
+with open("feature_column.pkl", "wb") as  f:
+    pickle.dump(feature_cols, f)
+
 y = df["KWh Consumption"]
 
 # Normalize features 
@@ -79,7 +86,7 @@ train_loader = DataLoader(train_dataset, batch_size=10, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
 
 # Training loop 
-epochs = 500
+epochs = 1000
 scheduler = StepLR(optimizer, step_size=50, gamma=0.5)
 for epoch in range(epochs):
     model.train()
@@ -98,7 +105,6 @@ for epoch in range(epochs):
 # Save the model
 torch.save(model.state_dict(), "Trained_Models/synthetic_data_energy_first_test.pth")
 print("Model saved")
-
 
 # Evaluate the model
 model.eval()
