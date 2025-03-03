@@ -5,6 +5,8 @@ import "../Styles/DataInput.css";
 import memoryImage from "../Styles/Images/the-persistence-of-memory-1931.jpg";
 import venereImage from "../Styles/Images/Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg";
 import JacuquesImage from "../Styles/Images/17Louis-David-Review-tennis-superJumbo.jpg"
+import DanteBoat from "../Styles/Images/Eugène_Delacroix_-_The_Barque_of_Dante.jpg"
+import StarryNight from "../Styles/Images/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
 
 // Define the steps of your multi-step form
 const stepsData = [
@@ -38,12 +40,16 @@ const stepsData = [
     type: "select",
     name: "heating_type",
     options: ["Electric", "Gas", "Solar", "None"],
+    backgroundImage: DanteBoat,
+    buttonClass: "red-button"
   },
   {
     label: "Select Cooling Type",
     type: "select",
     name: "cooling_type",
     options: ["Central AC", "Fans", "None"],
+    backgroundImage: StarryNight,
+    buttonClass: "blue-button"
   },
 ];
 
