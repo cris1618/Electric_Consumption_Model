@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 function EnergyPredictor() {
-  const [season, setSeason] = useState("Winter");
+  const [month, setMonth] = useState("January");
   const [size, setSize] = useState("");
   const [occupants, setOccupants] = useState("");
   const [heatingType, setHeatingType] = useState("Electric");
@@ -10,15 +10,15 @@ function EnergyPredictor() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     const requestData = {
-      season,
+      month,
       size: parseInt(size),
       occupants: parseInt(occupants),
       heating_type: heatingType,
       cooling_type: coolingType,
     };
-  
+
     try {
       const response = await fetch("http://127.0.0.1:8000/predict", {
         method: "POST",
@@ -27,30 +27,38 @@ function EnergyPredictor() {
         },
         body: JSON.stringify(requestData),
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to fetch prediction");
       }
-  
+
       const data = await response.json();
-      console.log("API Response:", data);  
-  
-      setPrediction(data["KWh Consumption"]);  
+      console.log("API Response:", data);
+      setPrediction(data["KWh Consumption"]);
     } catch (error) {
       console.error("Error fetching prediction:", error);
     }
   };
+
   return (
     <div>
       <h1>Energy Consumption Predictor</h1>
       <form onSubmit={handleSubmit}>
         <label>
-          Season:
-          <select value={season} onChange={(e) => setSeason(e.target.value)}>
-            <option>Winter</option>
-            <option>Spring</option>
-            <option>Summer</option>
-            <option>Fall</option>
+          Month:
+          <select value={month} onChange={(e) => setMonth(e.target.value)}>
+            <option>January</option>
+            <option>February</option>
+            <option>March</option>
+            <option>April</option>
+            <option>May</option>
+            <option>June</option>
+            <option>July</option>
+            <option>August</option>
+            <option>September</option>
+            <option>October</option>
+            <option>November</option>
+            <option>December</option>
           </select>
         </label>
 
@@ -74,7 +82,10 @@ function EnergyPredictor() {
 
         <label>
           Heating Type:
-          <select value={heatingType} onChange={(e) => setHeatingType(e.target.value)}>
+          <select
+            value={heatingType}
+            onChange={(e) => setHeatingType(e.target.value)}
+          >
             <option>Electric</option>
             <option>Gas</option>
             <option>Solar</option>
@@ -84,7 +95,10 @@ function EnergyPredictor() {
 
         <label>
           Cooling Type:
-          <select value={coolingType} onChange={(e) => setCoolingType(e.target.value)}>
+          <select
+            value={coolingType}
+            onChange={(e) => setCoolingType(e.target.value)}
+          >
             <option>Central AC</option>
             <option>Fans</option>
             <option>None</option>
@@ -94,7 +108,9 @@ function EnergyPredictor() {
         <button type="submit">Predict</button>
       </form>
 
-      {prediction !== null && <h2>Estimated Consumption: {prediction} KWh</h2>}
+      {prediction !== null && (
+        <h2>Estimated Consumption: {prediction} KWh</h2>
+      )}
     </div>
   );
 }
