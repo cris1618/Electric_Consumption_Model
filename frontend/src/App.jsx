@@ -4,10 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 
 // Import page components
 import WelcomePage from "./Components/WelcomePage";
-import DataInput from "./Components/DataInput";
+import DataInputWizard from "./Components/DataInputWizard";
 import ResultPage from "./Components/ResultPage";
 
-const slideVariants = {
+const globalSlideVariants = {
     initial: {y: "100%", opacity: 0},
     animate: {y: "0%", opacity: 1},
     exit: {y: "-100%", opacity: 0},
@@ -23,7 +23,7 @@ function AnimatedRoutes(){
             path="/"
             element={
                 <motion.div
-                variants={slideVariants}
+                variants={globalSlideVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
@@ -33,25 +33,15 @@ function AnimatedRoutes(){
                 </motion.div>
             }
             />
-            <Route
-            path="/data-input"
-            element={
-                <motion.div
-                variants={slideVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.5 }}
-                >
-                <DataInput />
-                </motion.div>
-            }
-            />
+           <Route
+          path="/data-input"
+          element={<DataInputWizard />}
+        />
             <Route
             path="/results"
             element={
                 <motion.div
-                variants={slideVariants}
+                variants={globalSlideVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"

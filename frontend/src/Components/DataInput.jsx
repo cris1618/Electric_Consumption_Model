@@ -53,6 +53,12 @@ const stepsData = [
   },
 ];
 
+const wizardSlideVariants = {
+  initial: { x: "100%", y:0, opacity: 0 },
+  animate: { x: "0%", y:0, opacity: 1 },
+  exit: { x: "-100%", y:0, opacity: 0 },
+};
+
 function DataInput() {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
@@ -104,7 +110,8 @@ function DataInput() {
   console.log("Current Step:", currentStep);
   console.log("Background Image:", currentStepData.backgroundImage);
   return (
-    <div className="data-input-container"
+    <div 
+    className="data-input-container"
     style={{
             backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.7)), url(${currentStepData.backgroundImage})`,
             backgroundSize: "cover",
@@ -112,15 +119,17 @@ function DataInput() {
             backgroundRepeat: "no-repeat",
         }}
       >
-      <AnimatePresence exitBeforeEnter>
-        <motion.div
-          key={currentStep}
-          className="input-step"
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -50 }}
-          transition={{ duration: 0.3 }}
-        >
+        <div className="wizard-wrapper">
+          <AnimatePresence exitBeforeEnter>
+            <motion.div
+              key={currentStep}
+              className="input-step"
+              variants={wizardSlideVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 10 , ease: "linear"}}
+            >
           <h2>{currentStepData.label}</h2>
           {currentStepData.type === "select" ? (
             <select
@@ -151,6 +160,7 @@ function DataInput() {
         </motion.div>
       </AnimatePresence>
     </div>
+  </div>
   );
 }
 

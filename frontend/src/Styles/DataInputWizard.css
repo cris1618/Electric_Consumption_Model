@@ -1,0 +1,106 @@
+.data-input-wizard-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+.wizard-step {
+    width: 300px;
+    height: auto;  
+    background-color: rgba(255, 255, 255, 1);
+    padding: 3rem 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    padding: 2rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.wizard-step input,
+.wizard-step select {
+  margin-bottom: 0.01rem; /* Increase to 2rem for extra space */
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* The button can remain the same or have its own margin as well */
+.wizard-step button {
+  margin-top: 0.5rem;  /* Add top margin if you want more spacing from the input */
+}
+
+  .button-group {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  
+  .brown-button,
+  .creme-button,
+  .yellow-button,
+  .red-button,
+  .blue-button {
+    padding: 0.7rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+    color: #fff;
+  }
+  
+  .brown-button { background-color: #805730; }
+  .brown-button:hover { background-color: #514A2E; }
+  
+  .creme-button { background-color: #78612c; }
+  .creme-button:hover { background-color: #514A2E; }
+  
+  .yellow-button { background-color: #c6ab10; }
+  .yellow-button:hover { background-color: #8B8000; }
+  
+  .red-button { background-color: #910046; }
+  .red-button:hover { background-color: #320219; }
+  
+  .blue-button { background-color: #1381ca; }
+  .blue-button:hover { background-color: #0869aa; }
+  
+
+  /* Slide In Right */
+@keyframes slideInRight {
+    0% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  .slideInRight {
+    animation: slideInRight 0.5s forwards;
+  }
+  
+  /* Slide Out Left */
+  @keyframes slideOutLeft {
+    0% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+  }
+  
+  .slideOutLeft {
+    animation: slideOutLeft 0.5s forwards;
+  }
+  
