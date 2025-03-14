@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import "../Styles/ResultsPage.css"; 
+import Atene from "../Styles/Images/romaguidetour-visite-guidate-personalizzate-roma-leonardo-vinci-scuola-atena-square.jpg";
 
 const ResultPage = () => {
+  const navigate = useNavigate();
   const { state } = useLocation();
   const { 
     prediction,
@@ -12,9 +15,7 @@ const ResultPage = () => {
     cooling_type,
    } = state || {};
 
-   const [suggestion, setSuggestion] = useState("Loading suggestions...");
-
-   
+   const [suggestion] = useState("Loading suggestions...");
 
    useEffect(() => {
     const prompt = `
@@ -42,13 +43,27 @@ const ResultPage = () => {
           .catch(err => console.error("Error calling local server:", err));
         })
 
-   return (
-    <div className="result-page">
-      <h1>Your Monthly Energy Consumption: {prediction} KWh</h1>
-      <h2>Suggestions</h2>
-      <p>{suggestion}</p>
-    </div>
-  );
-}
-
-export default ResultPage;
+        return (
+          <div className="result-page"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.2), rgba(255,255,255,0.7)), url(${Atene})`,
+          }}>
+            <div className="result-container">
+              <h1>Your Predicted Monthly Energy Consumption is:</h1>
+              <h2>{prediction} KWh</h2>
+              <h3>Your Suggestions</h3>
+              <div className="suggestions-output">
+                {suggestion ? <p>{suggestion}</p> : <p>No suggestion available.</p>}
+              </div>
+              <button 
+                className="brown-button"
+                onClick={() => navigate("/")}
+              >
+                Start Over
+              </button>
+            </div>
+          </div>
+        );
+      }
+      
+      export default ResultPage;
