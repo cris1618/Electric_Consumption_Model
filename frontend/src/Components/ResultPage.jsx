@@ -15,34 +15,44 @@ const ResultPage = () => {
     cooling_type,
    } = state || {};
 
-   const [suggestion] = useState("Loading suggestions...");
+   const [suggestion, setSuggestion] = useState("Loading suggestions...");
 
-   useEffect(() => {
-    const prompt = `
-    //The user has a monthly energy consumption of ${prediction} KWh.
-    //  Additional household information:
-     //- Month: ${month}
-     //- House Size: ${size} sq ft
-     //- Number of Occupants: ${occupants}
-     //- Heating Type: ${heating_type}
-     //- Cooling Type: ${cooling_type}
+   
+      useEffect(() => {
+        const prompt = `
+          The user has a monthly energy consumption of ${prediction} KWh.
+          Additional household information:
+          - Month: ${month}
+          - House Size: ${size} sq ft
+          - Number of Occupants: ${occupants}
+          - Heating Type: ${heating_type}
+          - Cooling Type: ${cooling_type}
+        
+          Provide practical and actionable suggestions to reduce energy consumption and save money.
+          Keep it short. Within 100 words.
+        `;
       
-      //Provide practical and actionable suggestions to reduce energy consumption and save money.
-     `;
-
-      fetch("http://localhost:5000/api/huggingface", { //"https://api-inference.huggingface.co/models/EleutherAI/gpt-j-6B"
+        fetch("http://127.0.0.1:8000/api/suggestions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt })
+          body: JSON.stringify({ prompt }) 
         })
-          .then(res => res.json())
-          .then(data => {
-            // data might be an array or object; handle accordingly
-            console.log("Response from local server:", data);
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`HTTP error! Status: ${res.status}`);
+            }
+            return res.json();
           })
-          .catch(err => console.error("Error calling local server:", err));
-        })
-
+          .then(data => {
+            console.log("Suggestion:", data);
+            setSuggestion(data.suggestion);
+          })
+          .catch(err => {
+            console.error("API error:", err);
+            setSuggestion("No suggestions available due to an error.");
+          });
+      }, [prediction, month, size, occupants, heating_type, cooling_type]);
+       
         return (
           <div className="result-page"
           style={{
